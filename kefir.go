@@ -8,19 +8,29 @@ import (
 )
 
 var (
-	// preface is the string prepended to configuration keys
-	preface string
-	// source is the source to be used to populate configs
+	// The transformer used when populating configs. Uses unprefixed uppercaser
+	// by default.
+	formatter Formatter = new(Uppercaser)
+	// The source to be used to populate configs. Uses OS environment variables
+	// by default.
 	source Source = new(OS)
 )
 
-// SetPreface sets the preface used when retrieving configuration values
-func SetPreface(p string) {
-	preface = p
+// SetFormatter sets the formatter used when populating configs.
+func SetFormatter(f Formatter) {
+	// Guarantee that calls on the formatter will never panic
+	if f == nil {
+		return
+	}
+	formatter = f
 }
 
-// SetSource sets the source used when retrieving configuation values
+// SetSource sets the source used when retrieving configuation values.
 func SetSource(s Source) {
+	// Guarantee that calls on the source will never panic
+	if s == nil {
+		return
+	}
 	source = s
 }
 
@@ -29,15 +39,37 @@ type Source interface {
 	Get(string) string
 }
 
-// OS is a source that retrieves config from environment variables
-type OS int
+// Formatter defines how config keys should be formatted. Format defines
+// a function that converts field names in the configuation struct to
+// corresponding key names in the source.
+type Formatter interface {
+	Format(string) string
+}
 
-// Get simply wraps os.Getenv
+// OS is a source that retrieves config from environment variables.
+type OS struct{}
+
+// Get simply wraps os.Getenv.
 func (o *OS) Get(key string) string {
 	return os.Getenv(key)
 }
 
-// Populate populates
+// Uppercaser formats config keys by optionally prepending a prefix and
+// uppercasing the key.
+type Uppercaser struct {
+	Prefix string
+}
+
+// Format optionally prepends a prefix and uppercases the key.
+func (u *Uppercaser) Format(field string) string {
+	if len(u.Prefix) > 0 {
+		return strings.ToUpper(u.Prefix + "_" + field)
+	}
+	return strings.ToUpper(field)
+}
+
+// Populate populates a configuration struct by retrieving values from the set
+// source that correspond to fields in the input struct.
 func Populate(conf interface{}) error {
 	t := reflect.TypeOf(conf)
 	if t.Kind() != reflect.Ptr {
@@ -55,17 +87,14 @@ func Populate(conf interface{}) error {
 		fieldV := v.Elem().Field(i)
 		fieldT := t.Field(i)
 
-		key := strings.ToUpper(fieldT.Name)
-		if len(preface) > 0 {
-			key = preface + "_" + key
+		if !fieldV.CanSet() {
+			continue
 		}
+
+		key := formatter.Format(fieldT.Name)
 		value := source.Get(key)
 
-		if fieldV.CanSet() {
-			fieldV.SetString(value)
-		} else {
-			panic("Failed to set config field: " + fieldT.Name)
-		}
+		fieldV.SetString(value)
 	}
 
 	return nil
