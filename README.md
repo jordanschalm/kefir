@@ -1,0 +1,2 @@
+# kefir
+Automatic configuration sourcing
