@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 )
 
@@ -20,7 +21,7 @@ var (
 func SetFormatter(f Formatter) {
 	// Guarantee that calls on the formatter will never panic
 	if f == nil {
-		return
+		panic("Attempted to set formatter to nil")
 	}
 	formatter = f
 }
@@ -29,7 +30,7 @@ func SetFormatter(f Formatter) {
 func SetSource(s Source) {
 	// Guarantee that calls on the source will never panic
 	if s == nil {
-		return
+		panic("Attempted to set source to nil")
 	}
 	source = s
 }
@@ -82,11 +83,13 @@ func Populate(conf interface{}) error {
 	}
 
 	v := reflect.ValueOf(conf)
+	v = v.Elem()
 
 	for i := 0; i < t.NumField(); i++ {
-		fieldV := v.Elem().Field(i)
+		fieldV := v.Field(i)
 		fieldT := t.Field(i)
 
+		// Ignore the field if we can't set it
 		if !fieldV.CanSet() {
 			continue
 		}
@@ -94,7 +97,34 @@ func Populate(conf interface{}) error {
 		key := formatter.Format(fieldT.Name)
 		value := source.Get(key)
 
-		fieldV.SetString(value)
+		switch fieldV.Kind() {
+		case reflect.String:
+			fieldV.SetString(value)
+		case reflect.Bool:
+			v, err := strconv.ParseBool(value)
+			if err != nil {
+				break
+			}
+			fieldV.SetBool(v)
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			v, err := strconv.ParseInt(value, 10, 64)
+			if err != nil {
+				break
+			}
+			fieldV.SetInt(v)
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			v, err := strconv.ParseUint(value, 10, 64)
+			if err != nil {
+				break
+			}
+			fieldV.SetUint(v)
+		case reflect.Float32, reflect.Float64:
+			v, err := strconv.ParseFloat(value, 64)
+			if err != nil {
+				break
+			}
+			fieldV.SetFloat(v)
+		}
 	}
 
 	return nil
