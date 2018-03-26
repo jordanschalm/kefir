@@ -15,8 +15,9 @@ func init() {
 
 type ConfigSetter map[string]string
 
-func (c *ConfigSetter) Get(key string) string {
-	return (*c)[key]
+func (c *ConfigSetter) Get(key string) (string, bool) {
+	v, ok := (*c)[key]
+	return v, ok
 }
 
 func TestSetNilSource(t *testing.T) {
@@ -220,5 +221,29 @@ func TestFloatField(t *testing.T) {
 	}
 	if c.B != 3.141592653 {
 		t.Errorf("Failed to populate field. Got: %f\tExpected: %f", c.B, 3.141592653)
+	}
+}
+
+func TestDefaultField(t *testing.T) {
+	c := struct {
+		A string `default:"defaultA"`
+		B string `default:"defaultB"`
+		C string
+	}{}
+
+	setter["A"] = "setA"
+	delete(setter, "B")
+	delete(setter, "C")
+
+	kefir.Populate(&c)
+
+	if c.A != "setA" {
+		t.Errorf("Failed to populate field. Got: %s\tExpected: %s", c.A, "setA")
+	}
+	if c.B != "defaultB" {
+		t.Errorf("Failed to populate field. Got: %s\tExpected: %s", c.B, "defaultB")
+	}
+	if c.C != "" {
+		t.Errorf("Empty field populated. Got: %s\t", c.C)
 	}
 }

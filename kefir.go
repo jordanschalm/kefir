@@ -37,7 +37,7 @@ func SetSource(s Source) {
 
 // Source defines a source for retrieving config values.
 type Source interface {
-	Get(string) string
+	Get(string) (string, bool)
 }
 
 // Formatter defines how config keys should be formatted. Format defines
@@ -50,9 +50,9 @@ type Formatter interface {
 // OS is a source that retrieves config from environment variables.
 type OS struct{}
 
-// Get simply wraps os.Getenv.
-func (o *OS) Get(key string) string {
-	return os.Getenv(key)
+// Get simply wraps os.LookupEnv.
+func (o *OS) Get(key string) (string, bool) {
+	return os.LookupEnv(key)
 }
 
 // Uppercaser formats config keys by optionally prepending a prefix and
@@ -95,7 +95,11 @@ func Populate(conf interface{}) error {
 		}
 
 		key := formatter.Format(fieldT.Name)
-		value := source.Get(key)
+		value, ok := source.Get(key)
+		if !ok {
+			// Couldn't find value. Use default if one is set.
+			value, _ = fieldT.Tag.Lookup("default")
+		}
 
 		switch fieldV.Kind() {
 		case reflect.String:
