@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var (
@@ -101,6 +102,8 @@ func Populate(conf interface{}) error {
 			value, _ = fieldT.Tag.Lookup("default")
 		}
 
+		var err error
+
 		switch fieldV.Kind() {
 		case reflect.String:
 			fieldV.SetString(value)
@@ -111,9 +114,20 @@ func Populate(conf interface{}) error {
 			}
 			fieldV.SetBool(v)
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			v, err := strconv.ParseInt(value, 10, 64)
-			if err != nil {
-				break
+			var v int64
+			// Check for case of time.Duration
+			tp := fieldV.Type()
+			if tp.Name() == "Duration" && tp.PkgPath() == "time" {
+				dv, err := time.ParseDuration(value)
+				if err != nil {
+					break
+				}
+				v = int64(dv)
+			} else {
+				v, err = strconv.ParseInt(value, 10, 64)
+				if err != nil {
+					break
+				}
 			}
 			fieldV.SetInt(v)
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:

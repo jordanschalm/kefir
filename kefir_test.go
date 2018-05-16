@@ -3,6 +3,7 @@ package kefir_test
 import (
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/jordanschalm/kefir"
 )
@@ -207,8 +208,7 @@ func TestUIntField(t *testing.T) {
 
 func TestFloatField(t *testing.T) {
 	c := struct {
-		A float32
-		B float64
+		A, B float32
 	}{}
 
 	setter["A"] = "3.14159"
@@ -245,5 +245,39 @@ func TestDefaultField(t *testing.T) {
 	}
 	if c.C != "" {
 		t.Errorf("Empty field populated. Got: %s\t", c.C)
+	}
+}
+
+func TestDuration(t *testing.T) {
+	c := struct {
+		A, B, C, D, E, F time.Duration
+	}{}
+
+	setter["A"] = "42ns"
+	setter["B"] = "42µs"
+	setter["C"] = "42ms"
+	setter["D"] = "42s"
+	setter["E"] = "42m"
+	setter["F"] = "42h"
+
+	kefir.Populate(&c)
+
+	if c.A != time.Nanosecond*42 {
+		t.Errorf("Failed to populate field. Got: %d\tExpected: %d", c.A, time.Nanosecond*42)
+	}
+	if c.B != time.Microsecond*42 {
+		t.Errorf("Failed to populate field. Got: %d\tExpected: %d", c.B, time.Microsecond*42)
+	}
+	if c.C != time.Millisecond*42 {
+		t.Errorf("Failed to populate field. Got: %d\tExpected: %d", c.C, time.Millisecond*42)
+	}
+	if c.D != time.Second*42 {
+		t.Errorf("Failed to populate field. Got: %d\tExpected: %d", c.D, time.Second*42)
+	}
+	if c.E != time.Minute*42 {
+		t.Errorf("Failed to populate field. Got: %d\tExpected: %d", c.E, time.Minute*42)
+	}
+	if c.F != time.Hour*42 {
+		t.Errorf("Failed to populate field. Got: %d\tExpected: %d", c.E, time.Hour*42)
 	}
 }
